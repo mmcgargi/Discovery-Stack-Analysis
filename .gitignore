@@ -1,0 +1,12 @@
+# Ignore output files
+output/
+
+# R session files
+.Rhistory
+.RData
+
+# RStudio settings (local only)
+.Rproj.user/
+
+# macOS
+.DS_Store
