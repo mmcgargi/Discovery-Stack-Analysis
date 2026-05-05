@@ -95,7 +95,32 @@ analyze_question <- function(df) {
   mw <- suppressWarnings(
     wilcox.test(new_scores, dsp_scores, exact = FALSE, correct = TRUE)
   )
-
+  # --- Z score and effect size r for Mann-Whitney U ---
+  n1 <- length(new_scores)
+  n2 <- length(dsp_scores)
+  N  <- n1 + n2
+  
+  U <- unname(mw$statistic)
+  
+  # Expected value of U under the null
+  mu_U <- n1 * n2 / 2
+  
+  # Tie-corrected variance of U
+  all_scores <- c(new_scores, dsp_scores)
+  tie_counts <- table(all_scores)
+  
+  tie_correction <- sum(tie_counts^3 - tie_counts) / (N * (N - 1))
+  
+  sigma_U <- sqrt((n1 * n2 / 12) * ((N + 1) - tie_correction))
+  
+  # Continuity correction, matching correct = TRUE above
+  cc <- 0.5 * sign(U - mu_U)
+  
+  Z <- (U - mu_U - cc) / sigma_U
+  
+  # Effect size r
+  r_effect <- Z / sqrt(N)
+  
   # --- Pearson chi-square with Monte Carlo p-value ---
   # Drop response categories where both groups have 0 counts (chisq.test
   # returns NaN otherwise). MW handles zero categories fine, so this only
@@ -121,9 +146,13 @@ analyze_question <- function(df) {
     mean_NEW  = mean(new_scores),
     mean_DSP  = mean(dsp_scores),
     diff      = mean(new_scores) - mean(dsp_scores),
+    median_NEW = median(new_scores),
+    median_DSP = median(dsp_scores),
     ci_lo     = ci[1],
     ci_hi     = ci[2],
-    U         = unname(mw$statistic),
+    U         = U,
+    Z_MW      = Z,
+    r_effect  = r_effect,
     p_MW      = mw$p.value,
     chi_sq    = unname(chi$statistic),
     p_chi     = chi$p.value
@@ -162,8 +191,8 @@ write.csv(results,
 
 cat("\n--- Results summary (sorted by figure) ---\n")
 print(results |>
-        select(Figure, Question, n_NEW, n_DSP, mean_NEW, mean_DSP,
-               p_MW, p_MW_BH, p_chi, p_chi_BH),
+        select(Figure, Question, n_NEW, n_DSP, median_NEW, median_DSP, mean_NEW, mean_DSP,
+               U, Z_MW, r_effect, p_MW, p_MW_BH, p_chi, p_chi_BH),
       n = Inf)
 
 cat("\nItems significant after BH correction (Mann-Whitney):\n")
